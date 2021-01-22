@@ -9,6 +9,8 @@ logs/
 *.pptx
 *.png
 *.txt
+*.drawio
+*.pdf
 
 
 # Byte-compiled / optimized / DLL files

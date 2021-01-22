@@ -122,19 +122,33 @@ def InProgress(current_dte, idx_dte, row_start_dte, row_end_dte, start_date, end
 
 def GetExpirationDateList():
     sql_expiration_dates = """
+        DECLARE @MaxDte DATE = (SELECT MAX(quote_date) FROM eggy.tblCBOEOptionsEODQuotes)
+
         SELECT DISTINCT quote_date = CONVERT(DATE, quote_date)
             , expiration
         FROM eggy.tblCBOEOptionsEODQuotes
         WHERE option_type = 'C'
+
+        UNION
+
+        SELECT DISTINCT quote_date = CONVERT(DATE, RowLoadDateTime)
+            , expiration = Expiration_Date
+        FROM eggy.tblOptionPrices_XSP
+        WHERE CONVERT(DATE, RowLoadDateTime) > @MaxDte
         """
     return ODBC.ReadSQL(db='Insurance', sql=sql_expiration_dates)
 
 
 
 def GetExpirationDate(df_expiration_dates, quote_date, anniversary_date):
-    df_expiration_dates_today = df_expiration_dates[df_expiration_dates['quote_date']==quote_date].copy()
-    df_expiration_dates_today['diff'] = df_expiration_dates_today.apply(lambda x: abs((x['expiration'] - anniversary_date).days), axis=1)
-    df_expiration_dates_today.sort_values(['diff'], inplace=True)
-    return df_expiration_dates_today['expiration'].iloc[0]
-
-
+    quote_date_calc = df_expiration_dates[df_expiration_dates['quote_date'] <= quote_date]['quote_date'].max()
+    df_expiration_dates_today = df_expiration_dates[df_expiration_dates['quote_date']==quote_date_calc].copy()
+    expiration_low = df_expiration_dates_today[df_expiration_dates_today['expiration'] <= anniversary_date]['expiration'].max()
+    expiration_high = df_expiration_dates_today[df_expiration_dates_today['expiration'] >= anniversary_date]['expiration'].min()
+    expiration_low_days = abs((anniversary_date - expiration_low).days)
+    expiration_high_days = abs((anniversary_date - expiration_high).days)
+    if expiration_low_days <= expiration_high_days:
+        expiration = expiration_low
+    else:
+        expiration = expiration_high
+    return expiration

@@ -29,6 +29,15 @@ if strategy == 'current':
     df_expiration_dates = mf.GetExpirationDateList()
 
 
+df_policies_gains_monthly_final = pd.DataFrame(columns=['PolNo', 'IndexDate', 'IndexAV', 'IndexValue', 'IndexValueShort'
+                                                        , 'Notional', 'NotionalShort', 'AnniversaryDate', 'gain', 'gain_short'
+                                                        , 'gain_total', 'sim'])
+
+
+df_options_final_monthly = pd.DataFrame(columns=['purchase_date', 'expiration_date', 'strike', 'qty'
+                                                 , 'Notional', 'cost', 'category', 'start_date', 'end_date', 'sim'])
+
+
 #########################################################################################################################
 # Run monthly loop
 #########################################################################################################################
@@ -74,18 +83,9 @@ for d in range(len(date_lst)):
         start_date_idx = df_spx[df_spx['CalendarDate'] == df_spx['CalendarDate'].min()].index.tolist()[0]
         end_date_idx = df_spx[df_spx['CalendarDate'] == df_spx['CalendarDate'].max()].index.tolist()[0]
 
-
-        df_policies_gains_monthly_final = pd.DataFrame(columns=['PolNo', 'IndexDate', 'IndexAV', 'IndexValue', 'IndexValueShort'
-                                                                , 'Notional', 'NotionalShort', 'AnniversaryDate', 'gain', 'gain_short'
-                                                                , 'gain_total'])
-
-
-        df_options_final_monthly = pd.DataFrame(columns=['purchase_date', 'expiration_date', 'strike', 'qty'
-                                                         , 'Notional', 'cost', 'category', 'start_date', 'end_date'])
-
-
         df_options = pd.DataFrame(columns=['purchase_date', 'expiration_date', 'strike', 'qty', 'Notional', 'cost'])
         df_options_short = pd.DataFrame(columns=['purchase_date', 'expiration_date', 'strike', 'qty', 'Notional', 'cost'])
+
 
 
         #########################################################################################################################
@@ -95,9 +95,7 @@ for d in range(len(date_lst)):
         for i in range(end_date_idx - start_date_idx + 1):
             current_dte = df_spx['CalendarDate'].loc[start_date_idx + i]
 
-
-            df_policies_work = df_policies.copy()
-            df_policies_work[['InProgress', 'is_hedged']] = df_policies_work.apply(lambda x: mf.InProgress(current_dte
+            df_policies[['InProgress', 'is_hedged']] = df_policies.apply(lambda x: mf.InProgress(current_dte
                                                                                                         , x['IndexDate']
                                                                                                         , x['RowStartDate']
                                                                                                         , x['RowEndDate']
@@ -106,7 +104,7 @@ for d in range(len(date_lst)):
                                                                                                         , x['is_hedged']
                                                                                                         , strategy)
                                                                                    , axis=1, result_type='expand')
-            df_policies_work = df_policies_work[df_policies_work['InProgress'] == 1]
+            df_policies_work = df_policies[df_policies['InProgress'] == 1].copy()
             df_policies_work['qty'] = df_policies_work['Notional'] / (df_policies_work['IndexValue'] * 100)
             df_policies_work['qty_short'] = df_policies_work['NotionalShort'] / (df_policies_work['IndexValueShort'] * 100)
             df_policies_work['NotionalBal'] = df_policies_work['StrikeBal'] * df_policies_work['qty'] * 100
@@ -212,6 +210,7 @@ for d in range(len(date_lst)):
         df_options_final['start_date'] = start_date
         df_options_final['end_date'] = end_date
         df_options_final['gain'] = df_options_final.apply(lambda x: mf.CalculateGains(df_spx, x['expiration_date'], x['strike'], x['Notional']), axis=1)
+        df_options_final['sim'] = sim
         df_options_final_monthly = df_options_final_monthly.append(df_options_final)
 
 
@@ -223,6 +222,7 @@ for d in range(len(date_lst)):
         df_policies_gains_monthly['gain'] = df_policies_gains_monthly.apply(lambda x: mf.CalculateGains(df_spx, x['AnniversaryDate'], x['IndexValue'], x['Notional']), axis=1)
         df_policies_gains_monthly['gain_short'] = df_policies_gains_monthly.apply(lambda x: mf.CalculateGains(df_spx, x['AnniversaryDate'], x['IndexValueShort'], x['NotionalShort']), axis=1)
         df_policies_gains_monthly['gain_total'] = df_policies_gains_monthly['gain'] - df_policies_gains_monthly['gain_short']
+        df_policies_gains_monthly['sim'] = sim
         df_policies_gains_monthly_final = df_policies_gains_monthly_final.append(df_policies_gains_monthly)
 
 
@@ -263,9 +263,5 @@ print(summary)
 
 
 
-df_options_final_monthly.to_csv(os.path.join(r"C:\Users\Eric.Di Re\Documents\Eric_Local\PerfectHedge\temp", "options.csv"))
-df_policies_gains_monthly_final.to_csv(os.path.join(r"C:\Users\Eric.Di Re\Documents\Eric_Local\PerfectHedge\temp", "policies.csv"))
-
-
-# df_options_final_monthly.T
-# df_policies_gains_monthly_final.T
+df_options_final_monthly.to_csv(os.path.join(r"C:\Users\Eric.Di Re\Documents\Eric_Local\PerfectHedge\temp", f"options_{strategy}.csv"))
+df_policies_gains_monthly_final.to_csv(os.path.join(r"C:\Users\Eric.Di Re\Documents\Eric_Local\PerfectHedge\temp", f"policies_{strategy}.csv"))
